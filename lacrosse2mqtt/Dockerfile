@@ -9,4 +9,6 @@ COPY lacrosse2mqtt.py /
 COPY run.sh /
 RUN chmod a+x /run.sh
 
+# s6-Overlay des Base-Images umgehen (suexec verlangt PID 1) — eigener Entrypoint
+ENTRYPOINT [ "/bin/sh", "/run.sh" ]
 CMD [ "/run.sh" ]
