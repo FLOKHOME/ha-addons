@@ -191,8 +191,11 @@ class Decoder:
         self.cfg = opts
         self.mqtt = mqtt
         self.prefix = opts.get("topic_prefix", "lacrosse")
+        self.last_data = None   # Zeitstempel des letzten Sensor-Frames (OK 9 ...)
+        self.last_any = None    # Zeitstempel der letzten Zeile vom LGW (KV-Status alle 10s)
 
     def handle_line(self, line):
+        self.last_any = time.time()
         armed = self.state.get("armed")
         if armed and time.time() > armed["until"]:
             log.info("replaceBattery window expired for %s", armed["name"])
@@ -215,6 +218,7 @@ class Decoder:
         if len(parts) != 7 or not all(p.isdigit() for p in parts[2:]):
             self.mqtt.publish("lacrosse2mqtt/raw/frames", line, retain=False)
             return
+        self.last_data = time.time()
         addr, b1, t_msb, t_lsb, hum_raw = (int(p) for p in parts[2:7])
         battery_new = (b1 & 0x80) >> 7
         temperature = (t_msb * 256 + t_lsb - 1000) / 10.0
@@ -313,6 +317,27 @@ class Decoder:
                 self.mqtt.publish(f"homeassistant/{kind}/lacrosse2mqtt_{uid}/config",
                                   json.dumps(payload))
 
+    def pub_gateway_discovery(self):
+        """Discovery-Entities: Gateway-Datenalter + Timeout-Alarm."""
+        dev = {"identifiers": ["lacrosse2mqtt_gw"], "name": "LaCrosseGateway",
+               "manufacturer": "LaCrosse", "model": "LaCrosseGateway"}
+        avail = {"availability_topic": LWT_TOPIC, "payload_available": "online",
+                 "payload_not_available": "offline"}
+        cfgs = [
+            ("sensor", "gw_data_age", {
+                "name": "Datenalter", "state_topic": "lacrosse2mqtt/gateway/data_age_s",
+                "unit_of_measurement": "s", "icon": "mdi:timer-outline",
+                "unique_id": "lacrosse2mqtt_gw_data_age", "device": dev, **avail}),
+            ("binary_sensor", "gw_timeout", {
+                "name": "Keine Sensordaten", "device_class": "problem",
+                "state_topic": "lacrosse2mqtt/gateway/timeout",
+                "payload_on": "on", "payload_off": "off",
+                "unique_id": "lacrosse2mqtt_gw_timeout", "device": dev, **avail}),
+        ]
+        for kind, uid, payload in cfgs:
+            self.mqtt.publish(f"homeassistant/{kind}/lacrosse2mqtt_{uid}/config",
+                              json.dumps(payload))
+
     def on_command(self, topic, payload):
         sub = topic.split("/set/", 1)[-1]
         try:
@@ -372,6 +397,11 @@ def lgw_loop(decoder, opts):
                     buf += s.recv(65536)
                 except socket.timeout:
                     # Keepalive-Gefühl: LGW sendet KV-Status alle 10 s
+                    # Half-dead-Erkennung: TCP haelt, aber LGW schweigt >180 s -> Reconnect
+                    if decoder.last_any and time.time() - decoder.last_any > 180:
+                        log.warning("LGW schweigt seit >180 s (TCP offen, keine Zeilen) — erzwinge Reconnect")
+                        s.close()
+                        break
                     continue
                 while b"\n" in buf:
                     line, buf = buf.split(b"\n", 1)
@@ -413,9 +443,35 @@ def main():
                 decoder.pub_discovery()
                 had = names
 
+    def watchdog_loop():
+        # Gateway-Daten-Watchdog: Alter des letzten Sensor-Frames + Timeout-Alarm
+        # (wird auch als HA-Entity via Discovery gespiegelt — siehe pub_gateway_discovery)
+        timeout_s = int(opts.get("data_timeout_min", 60)) * 60
+        decoder.pub_gateway_discovery()
+        last_state = None
+        while True:
+            time.sleep(30)
+            if not mqtt.connected:
+                continue
+            age = (time.time() - decoder.last_data) if decoder.last_data else None
+            mqtt.publish("lacrosse2mqtt/gateway/data_age_s",
+                         str(int(age)) if age is not None else "-1", retain=True)
+            timeout = age is None or age > timeout_s
+            if timeout != last_state:
+                mqtt.publish("lacrosse2mqtt/gateway/timeout",
+                             "on" if timeout else "off", retain=True)
+                if timeout:
+                    log.warning("GATEWAY-ALARM: keine Sensordaten seit %s",
+                                f"{int(age)}s" if age is not None else "Add-on-Start")
+                else:
+                    log.info("Gateway-Daten fliessen wieder (Alter %ds)", int(age or 0))
+                last_state = timeout
+
     threading.Thread(target=discovery_loop, daemon=True).start()
-    log.info("lacrosse2mqtt gestartet (LGW %s:%s -> MQTT %s:%s, %d Sensoren)",
-             opts["lgw_host"], opts["lgw_port"], mqtt_host, mqtt_port, len(state["sensors"]))
+    threading.Thread(target=watchdog_loop, daemon=True).start()
+    log.info("lacrosse2mqtt gestartet (LGW %s:%s -> MQTT %s:%s, %d Sensoren, Timeout %d min)",
+             opts["lgw_host"], opts["lgw_port"], mqtt_host, mqtt_port,
+             len(state["sensors"]), int(opts.get("data_timeout_min", 60)))
     while True:
         time.sleep(3600)
 
