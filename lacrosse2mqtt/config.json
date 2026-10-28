@@ -1,0 +1,37 @@
+{
+  "name": "LaCrosse 2 MQTT",
+  "version": "1.0.0",
+  "slug": "lacrosse2mqtt",
+  "description": "LaCrosse IT+ Sensors (LaCrosseGateway) to MQTT with HA-Discovery — without FHEM",
+  "url": "https://github.com/FLOKHOME/ha-addons",
+  "arch": ["aarch64", "amd64", "armhf", "armv7", "i386"],
+  "license": "MIT",
+  "startup": "services",
+  "boot": "auto",
+  "services": ["mqtt:want"],
+  "map": [],
+  "ports": {},
+  "options": {
+    "lgw_host": "172.16.0.11",
+    "lgw_port": 82,
+    "mqtt_host": "core-mosquitto",
+    "mqtt_port": 1883,
+    "mqtt_user": "mqtt_user",
+    "mqtt_pass": "",
+    "topic_prefix": "lacrosse",
+    "sensors": {}
+  },
+  "schema": {
+    "lgw_host": "str",
+    "lgw_port": "port",
+    "mqtt_host": "str",
+    "mqtt_port": "port",
+    "mqtt_user": "str",
+    "mqtt_pass": "str",
+    "topic_prefix": "str",
+    "sensors": "dict"
+  },
+  "image_description": "LaCrosseGateway IT+ decoder daemon",
+  "stage": "stable",
+  "ingress": false
+}
