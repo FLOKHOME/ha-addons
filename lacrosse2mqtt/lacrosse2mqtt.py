@@ -373,9 +373,11 @@ def main():
         log.error("options.json unvollstaendig: lgw_host fehlt")
         sys.exit(1)
     state = load_json(STATE_PATH, {"sensors": {}, "armed": None, "unknown": {}})
-    # Sensoren aus Optionen uebernehmen (HA-UI-Pflege)
-    for name, addr in (opts.get("sensors") or {}).items():
-        state["sensors"][str(addr)] = {"name": name}
+    # Sensoren aus Optionen uebernehmen (HA-UI-Liste "Name=Adresse")
+    for entry in opts.get("sensors") or []:
+        if "=" in entry:
+            name, _, addr = entry.partition("=")
+            state["sensors"][str(addr.strip())] = {"name": name.strip()}
     save_json(STATE_PATH, state)
 
     mqtt_host = opts.get("mqtt_host", "core-mosquitto")
