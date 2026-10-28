@@ -225,7 +225,16 @@ class Decoder:
         sensors = self.state["sensors"]
         entry = sensors.get(key)
         if entry and entry.get("name"):
-            self.pub_values(entry["name"], battery_low, temperature, humidity)
+            if not (-50.0 <= temperature <= 60.0):
+                log.debug("Unplaussible Temperatur von %s: %.1f (Frame verworfen)", entry["name"], temperature)
+                return
+            if not (0 <= humidity <= 99):
+                # H > 99 (z. B. 106) = Frame-Typ, den wir nicht sauber dekodieren
+                # -> nur Temperatur publishen, Feuchte auslassen (wie FHEM: ungueltig ignorieren)
+                log.info("%s: H=%d ungueltig -> nur Temperatur published (%.1f)", entry["name"], humidity, temperature)
+                self.pub_values(entry["name"], battery_low, temperature, None)
+            else:
+                self.pub_values(entry["name"], battery_low, temperature, humidity)
             if battery_new:
                 self.mqtt.publish(f"{self.prefix}/{entry['name']}/newBattery", "yes", retain=False)
             return
@@ -245,8 +254,12 @@ class Decoder:
             self.pub_values(armed["name"], battery_low, temperature, humidity)
             return
 
-        log.info("UNBEKANTER Sensor addr=%s T=%.1f H=%d (replaceBatteryForSec oder rename moeglich)",
-                 addr, temperature, humidity)
+        now_ts = time.time()
+        last_logged = getattr(self, "_unknown_last_log", {})
+        if now_ts - last_logged.get(key, 0) > 600:  # max 1x/10 min pro addr ins Log
+            log.info("UNBEKANTER Sensor addr=%s T=%.1f H=%d (replaceBatteryForSec oder rename moeglich)",
+                     addr, temperature, humidity)
+            last_logged[key] = now_ts
         self.state.setdefault("unknown", {})[key] = time.strftime("%Y-%m-%d %H:%M")
         save_json(STATE_PATH, self.state)
         self.mqtt.publish(f"{self.prefix}/events/unknownSensor",
@@ -266,7 +279,8 @@ class Decoder:
     def pub_values(self, name, battery_low, temperature, humidity):
         base = f"{self.prefix}/{name}"
         self.mqtt.publish(f"{base}/temperature", f"{temperature:.1f}")
-        self.mqtt.publish(f"{base}/humidity", str(int(humidity)))
+        if humidity is not None:
+            self.mqtt.publish(f"{base}/humidity", str(int(humidity)))
         self.mqtt.publish(f"{base}/battery", "low" if battery_low else "ok")
         self.mqtt.publish(f"{base}/battery_low", "low" if battery_low else "ok")
 
