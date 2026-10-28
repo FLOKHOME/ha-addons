@@ -1,6 +1,6 @@
 {
   "name": "LaCrosse 2 MQTT",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "slug": "lacrosse2mqtt",
   "description": "LaCrosse IT+ Sensors (LaCrosseGateway) to MQTT with HA-Discovery — without FHEM",
   "url": "https://github.com/FLOKHOME/ha-addons",

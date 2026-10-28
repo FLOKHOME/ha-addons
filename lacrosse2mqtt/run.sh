@@ -1,5 +1,5 @@
-#!/usr/bin/with-contenv bashio
+#!/bin/sh
 set -e
 
-bashio::log.info "Starting lacrosse2mqtt daemon..."
+echo "[run.sh] starting lacrosse2mqtt daemon..."
 exec python3 /lacrosse2mqtt.py
