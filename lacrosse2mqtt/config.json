@@ -27,7 +27,7 @@
     "mqtt_host": "str",
     "mqtt_port": "port",
     "mqtt_user": "str",
-    "mqtt_pass": "password",
+    "mqtt_pass": "str",
     "topic_prefix": "str",
     "sensors": "dict"
   },
