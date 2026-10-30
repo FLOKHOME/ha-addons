@@ -1,0 +1,58 @@
+# Example automation: alert on LaCrosseGateway data timeout
+#
+# The add-on publishes a binary_sensor (via MQTT discovery) that goes `on`
+# when no sensor data has arrived for `data_timeout_min` minutes
+# (default 60, see the add-on options). The add-on itself already triggers a
+# soft-reboot of the gateway (HTTP /reset) at that moment; this automation
+# only tells you about it.
+#
+# Replace the placeholder chat_id with your own Telegram chat id
+# (get it via https://t.me/username_to_id_bot or by messaging your bot and
+# reading getUpdates). The Telegram integration must be set up in HA.
+
+automation:
+  - id: lacrosse_gateway_timeout
+    alias: "LaCrosse Gateway: Timeout-Alarm"
+    description: >
+      Warns when the LaCrosseGateway stops sending sensor data and reports
+      when data flows again. The add-on already reboots the gateway on its
+      own — this is just the notification layer.
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.lacrosse2mqtt_gw_timeout
+        to: "on"
+        id: timeout
+      - platform: state
+        entity_id: binary_sensor.lacrosse2mqtt_gw_timeout
+        to: "off"
+        id: recovered
+    action:
+      - choose:
+          # Gateway dead: alarm message (plain text — markdown_v2 chokes on
+          # most punctuation and the whole chat_id is a safe subject anyway)
+          - conditions:
+              - condition: trigger
+                id: timeout
+            sequence:
+              - service: telegram_bot.send_message
+                data:
+                  parse_mode: plain
+                  target: "PLACEHOLDER_CHAT_ID"
+                  message: >-
+                    Alarm LaCrosseGateway: keine Sensordaten mehr
+                    (Datenalter {{ states('sensor.lacrossegateway_datenalter') }}
+                    s). Gateway-Reset wurde automatisch ausgeloesst — bitte
+                    Nachrichtenfluss beobachten.
+          # Data flows again: confirmation with the fresh data age
+          - conditions:
+              - condition: trigger
+                id: recovered
+            sequence:
+              - service: telegram_bot.send_message
+                data:
+                  parse_mode: plain
+                  target: "PLACEHOLDER_CHAT_ID"
+                  message: >-
+                    LaCrosseGateway liefert wieder Daten (Alter
+                    {{ states('sensor.lacrossegateway_datenalter') }} s).
+    mode: single

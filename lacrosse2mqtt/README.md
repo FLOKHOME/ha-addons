@@ -70,6 +70,16 @@ OK 9 <addr> <b1> <temp_msb> <temp_lsb> <hum_raw>
   bat low = hum_raw & 0x80
 ```
 
+## Watchdog & Telegram
+
+- `binary_sensor.lacrosse2mqtt_gw_timeout` (discovery) goes `on` when no sensor
+  data has arrived for `data_timeout_min` minutes (default 60, configurable in
+  the add-on options). At that moment the daemon itself triggers a soft-reboot
+  of the gateway (HTTP GET `http://<lgw_host>/reset`).
+- `sensor.lacrossegateway_datenalter` shows the data age in seconds.
+- For notifications, see [automation-example.yaml](automation-example.yaml) —
+  a ready-to-use Telegram automation (replace the placeholder chat id).
+
 ## License
 
 MIT — see [LICENSE](../LICENSE).
