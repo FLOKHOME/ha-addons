@@ -1,14 +1,22 @@
 {
   "name": "LaCrosse 2 MQTT",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "slug": "lacrosse2mqtt",
   "description": "LaCrosse IT+ Sensors (LaCrosseGateway) to MQTT with HA-Discovery — without FHEM",
   "url": "https://github.com/FLOKHOME/ha-addons",
-  "arch": ["aarch64", "amd64", "armhf", "armv7", "i386"],
+  "arch": [
+    "aarch64",
+    "amd64",
+    "armhf",
+    "armv7",
+    "i386"
+  ],
   "license": "MIT",
   "startup": "services",
   "boot": "auto",
-  "services": ["mqtt:want"],
+  "services": [
+    "mqtt:want"
+  ],
   "map": [],
   "ports": {},
   "options": {
@@ -19,7 +27,13 @@
     "mqtt_user": "mqtt_user",
     "mqtt_pass": "",
     "topic_prefix": "lacrosse",
-    "sensors": ["Sensor01=58", "Sensor02=4", "Sensor03=28", "Sensor04=49", "Sensor05=12"],
+    "sensors": [
+      "Sensor01=58",
+      "Sensor02=4",
+      "Sensor03=28",
+      "Sensor04=49",
+      "Sensor05=12"
+    ],
     "data_timeout_min": 60
   },
   "schema": {
@@ -30,7 +44,9 @@
     "mqtt_user": "str",
     "mqtt_pass": "str",
     "topic_prefix": "str",
-    "sensors": ["str"],
+    "sensors": [
+      "str"
+    ],
     "data_timeout_min": "int"
   },
   "image_description": "LaCrosseGateway IT+ decoder daemon",

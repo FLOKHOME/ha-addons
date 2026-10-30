@@ -463,6 +463,12 @@ def main():
                 if timeout:
                     log.warning("GATEWAY-ALARM: keine Sensordaten seit %s",
                                 f"{int(age)}s" if age is not None else "Add-on-Start")
+                    try:
+                        import urllib.request as _ur
+                        _ur.urlopen(f"http://{opts.get('lgw_host','172.16.0.11')}/reset", timeout=10)
+                        log.info("Gateway /reset ausgeloesst (Timeout-Wache)")
+                    except Exception as _e:
+                        log.warning("Gateway /reset fehlgeschlagen: %s", _e)
                 else:
                     log.info("Gateway-Daten fliessen wieder (Alter %ds)", int(age or 0))
                 last_state = timeout

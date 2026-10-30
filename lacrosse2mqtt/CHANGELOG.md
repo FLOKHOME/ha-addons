@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 (2026-10-30)
+
+- **Gateway-Reset bei Daten-Timeout:** Läuft der Watchdog-Alarm an
+  (`data_timeout_min` überschritten), löst der Daemon selbst einen Soft-Reboot
+  des LaCrosseGateways aus (HTTP GET `http://<lgw_host>/reset`) und loggt den
+  Versuch. Recovery läuft damit ohne manuelles Eingreifen oder FHEM.
+
 ## 1.1.0 (2026-10-28)
 
 - **Gateway-Watchdog:** new entities via Discovery — `Datenalter` sensor (seconds
