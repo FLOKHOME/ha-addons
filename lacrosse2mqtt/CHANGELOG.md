@@ -40,3 +40,21 @@
 - unknown-sensor event topic
 - gateway KV status passthrough
 - LWT availability topic
+
+## [1.1.2] - 2026-11-05
+
+### Fixed
+- **Nicht-blockierender Gateway-Reset:** Der Soft-Reboot der LGW-Box laeuft
+  jetzt in eigenem Thread. Der fruehere Blocking-Call in der Watchdog-Schleife
+  konnte den Daemon festhalten, wenn die Box traege antwortete — danach
+  reconnectete der LGW-Reader nie wieder.
+- **Harte Eskalation:** Bleibt die Box nach 3x Timeout-Zeitraum komplett tot
+  (kein einziges Telegramm), beendet sich der Daemon mit os._exit(1).
+  Der Container-Neustart (Docker/HA Supervisor) zieht die Verbindung sauber
+  neu auf — kein manueller Eingriff mehr noetig.
+- **Docker-HEALTHCHECK** via heartbeat-Datei (/tmp/daemon_heartbeat, tmpfs):
+  Sichtbarer 'unhealthy'-Status in docker ps, wenn der Daemon haengt.
+
+### Changed
+- Watchdog-Logik unveraendert: Timeout via LUFT_DATA / LUFT_DATA_x, aber
+  Eskalation nur bei bleibendem Totalausfall, nicht bei jedem einzelnen Timeout.

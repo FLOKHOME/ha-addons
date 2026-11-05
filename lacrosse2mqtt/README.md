@@ -1,5 +1,8 @@
 # LaCrosse 2 MQTT — Home Assistant Add-on
 
+> **v1.1.2 (2026-11-05):** Robustere Gateway-Verbindung —
+> nicht-blockierender Reset, harte Eskalation (Container-Restart)
+> und Docker-Healthcheck bei bleibendem Totalausfall.
 **LaCrosse IT+ Sensors (via LaCrosseGateway) → MQTT with HA-Discovery — without FHEM.**
 
 Reads the RF data stream from a [LaCrosseGateway](https://github.com/rinie/LaCrosseITPlusReader)

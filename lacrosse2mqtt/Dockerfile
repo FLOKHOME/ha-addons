@@ -12,3 +12,7 @@ RUN chmod a+x /run.sh
 # s6-Overlay des Base-Images umgehen (suexec verlangt PID 1) — eigener Entrypoint
 ENTRYPOINT [ "/bin/sh", "/run.sh" ]
 CMD [ "/run.sh" ]
+
+COPY healthcheck.py /app/healthcheck.py
+HEALTHCHECK --interval=60s --timeout=10s --start-period=180s --retries=3 \
+  CMD python3 /app/healthcheck.py

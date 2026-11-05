@@ -382,6 +382,22 @@ class Decoder:
         self.mqtt.publish("lacrosse2mqtt/set/ack", json.dumps(ack), retain=False)
 
 
+def _trigger_gateway_reset(opts):
+    """Soft-Reboot des Gateways in eigenem Thread (nicht-blockierend, v1.1.2).
+
+    Der fruehere Blocking-Call in der Watchdog-Schleife konnte den gesamten
+    Daemon anhalten, wenn die Box beim Reset traege antwortete — dann
+    reconnectete der lgw_loop nie wieder. Der Reset laeuft jetzt isoliert."""
+    def _worker():
+        try:
+            import urllib.request as _ur
+            _ur.urlopen(f"http://{opts.get('lgw_host','172.16.0.11')}/reset", timeout=10)
+            log.info("Gateway /reset ausgeloesst (Timeout-Wache)")
+        except Exception as _e:
+            log.warning("Gateway /reset fehlgeschlagen: %s", _e)
+    threading.Thread(target=_worker, daemon=True, name="lgw-gw-reset").start()
+
+
 # ---------- LGW-Reader ----------
 
 def lgw_loop(decoder, opts):
@@ -451,24 +467,29 @@ def main():
         last_state = None
         while True:
             time.sleep(30)
+            try:
+                with open("/tmp/daemon_heartbeat", "w") as _hb:
+                    _hb.write(str(time.time()))
+            except Exception:
+                pass
             if not mqtt.connected:
                 continue
             age = (time.time() - decoder.last_data) if decoder.last_data else None
             mqtt.publish("lacrosse2mqtt/gateway/data_age_s",
                          str(int(age)) if age is not None else "-1", retain=True)
             timeout = age is None or age > timeout_s
+            # Letzte Rettung (v1.1.2): bleibender Totalausfall nach 3x Timeout —
+            # Daemon beendet sich hart, Docker/Supervisor startet den Container neu.
+            if age is not None and age > 3 * timeout_s and timeout:
+                log.critical("GATEWAY tot seit %ds (> 3x Timeout) — Daemon beendet sich fuer Container-Restart", int(age))
+                os._exit(1)
             if timeout != last_state:
                 mqtt.publish("lacrosse2mqtt/gateway/timeout",
                              "on" if timeout else "off", retain=True)
                 if timeout:
                     log.warning("GATEWAY-ALARM: keine Sensordaten seit %s",
                                 f"{int(age)}s" if age is not None else "Add-on-Start")
-                    try:
-                        import urllib.request as _ur
-                        _ur.urlopen(f"http://{opts.get('lgw_host','172.16.0.11')}/reset", timeout=10)
-                        log.info("Gateway /reset ausgeloesst (Timeout-Wache)")
-                    except Exception as _e:
-                        log.warning("Gateway /reset fehlgeschlagen: %s", _e)
+                    _trigger_gateway_reset(opts)
                 else:
                     log.info("Gateway-Daten fliessen wieder (Alter %ds)", int(age or 0))
                 last_state = timeout
